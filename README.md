@@ -1,59 +1,120 @@
-# Naive SAT Solvers
-This repository includes implementations of the __Resolution Method, Davis–Putnam (DP), DPLL, and CDCL__— four of the most well-known [SAT solving methods](http://en.wikipedia.org/wiki/Boolean_satisfiability_problem#Algorithms_for_solving_SAT)—in their **basic** form.  
-Each implementation has its own codebase but shares the same fundamental ideas. A console executable reads all [CNF](http://en.wikipedia.org/wiki/Conjunctive_normal_form) files in [DIMACS](https://people.sc.fsu.edu/~jburkardt/data/cnf/cnf.html) format from a folder, processes them, and outputs the results in a `.txt` file with the format `<flename>: SAT/UNSAT in x.xxx ms`.
-## Motivation
+# 🧠 Classical SAT Solving Algorithms
 
-This repository aims to benchmark popular SAT solving methods/algorithms for the purpose of ***science*** ~~(but also to complete an assignment for university)~~.  
-The main algorithms tackled are Resolution, DP, DPLL, and CDCL—_and maybe more if I have the time_.  
-All algorithms are implemented without heuristics or complex optimizations to prioritize **simplicity and ease of use**.  
+![C++](https://img.shields.io/badge/Language-C%2B%2B11-blue.svg)
+![Python](https://img.shields.io/badge/Scripting-Python%203-yellow.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-This journey has led me down a path of discovery and made me appreciate the immense work behind the problem of satisfiability and modern SAT solvers. I have great respect for the people who made all this possible, and I hope this project inspires others to approach the problem with the same enthusiasm.
+A comprehensive benchmarking repository implementing four fundamental algorithms for the Boolean Satisfiability Problem (SAT). Implemented in **C++11** for performance, this project explores the evolution of SAT solvers from the basic Resolution method to the modern Conflict-Driven Clause Learning (CDCL) algorithm.
 
-## C++11?
+This project is designed for scientific benchmarking and educational exploration, demonstrating the immense performance gaps between naive and modern approaches.
 
-All algorithms are implemented entirely in **C++11** for both efficiency and simplicity.  
-C++ provides all the necessary libraries to make this as straightforward as possible.  
-My motivation for choosing C++ over Python is its **speed** and **compiled nature**.  
-**And everybody knows that _speed_ is key.**
+---
 
-## Usage
+## ✨ Key Features
 
-We take this simple CNF file as example:
-``` dimacs
-p cnf 5 10
-1 4 -2 0
-3 -1 -2 0
--5 4 -1 0
--5 -3 -2 0
-2 3 -3 0
--5 -3 -2 0
--5 -4 -3 0
-1 2 5 0
-2 3 -4 0
-4 -3 -2 0
+### 🧩 The Solvers
+* **Resolution Method**: A naive approach using pure logical resolution steps. Known for being computationally expensive and slow on non-trivial problems.
+* **Davis–Putnam (DP)**: An early algorithm focused on variable elimination. While foundational, it struggles with memory explosion on large instances.
+* **DPLL (Davis–Putnam–Logemann–Loveland)**: A memory-efficient depth-first search algorithm utilizing unit propagation, pure literal elimination, and the splitting rule.
+* **CDCL (Conflict-Driven Clause Learning)**: The state-of-the-art approach for industrial SAT solving. Features unit propagation, 1-UIP conflict analysis, non-chronological backtracking, and dynamic clause learning.
+
+### ⚙️ Utilities & Architecture
+* **Standard Input**: Fully supports the [DIMACS](http://en.wikipedia.org/wiki/Conjunctive_normal_form) CNF file format.
+* **Automated Benchmarking**: Each solver automatically processes batches of `.cnf` files and logs execution time in milliseconds.
+* **CNF Generator**: A Python script to generate random 2SAT/3SAT instances with customizable variables and clauses.
+* **Performance Comparison**: Pre-computed results comparing execution times across all four methods for 2SAT and 3SAT problems.
+
+---
+
+## 🛠️ Tech Stack
+
+* **Core Logic**: C++11 (chosen for speed and strict typing).
+* **Scripting**: Python 3 (Random CNF Generation).
+* **Data Format**: DIMACS CNF (Conjunctive Normal Form).
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+* **C++ Compiler**: A compiler supporting C++11 (e.g., `g++`, `clang`).
+* **Python 3**: For generating new test cases (optional).
+
+### 2. Compilation
+Each solver is self-contained. You can compile them individually using your terminal:
+
+**Compile CDCL Solver:**
+```bash
+g++ -std=c++11 sat_solvers/cdcl/sat_solver.cpp -o cdcl_solver
 ```
 
-The first line, `p cnf 5 10` is treated as metadata and ignored.
-Running any of the included solvers produces an output file named `result_<method_used>.txt`, containing lines like: `<filename>.cnf: SAT in 0.069 ms`.  
-The repository contains the [CNF_files](cnf_files/) directory, where all test cases are stored, and a [samples](cnf_files/samples/) directory with a few trivial CNF examples.
-You can remove or replace the sample files—just drag and drop any CNF files you want to test into the `samples` folder, and enjoy the results!  
-Additionally, there's a simple [Python script](cnf_generator/) that can generate CNF files in DIMACS format.
+**Compile DPLL Solver:**
+```bash
+g++ -std=c++11 sat_solvers/dpll/sat_solver.cpp -o dpll_solver
+```
 
-## Test results
+*(Repeat for `dp` and `resolution` directories as needed)*
 
-In the [results](results/) directory, you can find all test case outputs, split into **2SAT** and **3SAT**.  
-You'll notice the **lack of results** for the Resolution method and Davis–Putnam. That's because those methods are **way too slow** for anything non-trivial in the 3SAT category.  
-All results follow the format described in the first section of this [README.md](README.md).
+### 3. Usage
 
-## ToDO list
+#### 🔬 Running a Solver
+The solvers are configured to read `.cnf` files from the `cnf_files/samples/` directory by default.
 
-1. ~~Actually implement the algorithims.~~
-2. ~~Investigate the use of multithreading and other optimizations.~~ _Multithreading usually slows things down_
-3. ~~Find a way to store benchmarks.~~
-4. Maybe write a script to streamline everything and make testing easier. _This is still a valid goal, but not right now._
-5. Allow users to choose the folder from which CNF files are read.
-6. Unify all the code into one program with an option to select a preferred method.
+1.  Place your DIMACS `.cnf` files into `cnf_files/samples/`.
+2.  Run the executable:
+    ```bash
+    ./cdcl_solver
+    ```
+3.  Results are printed to the console and saved to `results_<method>.txt`.
 
-## License
+#### 🎲 Generating Random CNF
+Use the included Python script to create custom benchmarks.
 
-[MIT License](LICENSE)
+```bash
+# Generate a random CNF with 30 variables and 30 clauses
+python3 cnf_generator/generate_random_cnf.py --vars 30 --clauses 30 --lits 3 --out random.cnf
+```
+
+---
+
+## 📂 Project Structure
+
+```bash
+l4aaa-classical-sat-solving-algorithms/
+├── cnf_files/                 # Directory for input files
+│   └── samples/               # Drop your .cnf test files here
+├── cnf_generator/
+│   ├── generate_random_cnf.py # Python script for creating random benchmarks
+│   └── README.md              # Documentation for the generator
+├── results/                   # Benchmark outcomes
+│   ├── 2sat/                  # Results for 2-Satisfiability problems
+│   └── 3sat/                  # Results for 3-Satisfiability problems
+├── sat_solvers/               # Source code for algorithms
+│   ├── cdcl/                  # Conflict-Driven Clause Learning implementation
+│   ├── dp/                    # Davis-Putnam implementation
+│   ├── dpll/                  # DPLL implementation
+│   └── resolution/            # Resolution Method implementation
+├── LICENSE                    # MIT License
+└── README.md                  # Project Documentation
+```
+
+---
+
+## 📊 Benchmark Summary
+
+Results found in the `results/` directory highlight the drastic performance differences:
+
+| Algorithm | 2SAT Performance | 3SAT Performance | Note |
+| :--- | :--- | :--- | :--- |
+| **CDCL** | ⚡ Instant (< 1ms) | ⚡ Fast | Scales well with complexity. |
+| **DPLL** | 🚀 Fast | 🐢 Moderate | Good for smaller instances. |
+| **DP** | 🐢 Slow | 🛑 Timeout | Memory intensive. |
+| **Resolution** | 🛑 Very Slow | 🛑 Timeout | Exponential complexity. |
+
+---
+
+## 📝 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+> **Disclaimer**: The simpler methods (Resolution, DP) are implemented for scientific comparison and may not solve large instances efficiently.

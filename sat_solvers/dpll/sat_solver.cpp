@@ -2,24 +2,29 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <set>
-#include <map>
+#include <cmath>
 #include <chrono>
 #include <iomanip>
 #include <algorithm>
 #include <filesystem>
 
-namespace fs = std::filesystem;
-
-using Clause = std::vector<int>;
+using Literal = int;
+using Clause = std::vector<Literal>;
 using CNF = std::vector<Clause>;
-using Assignment = std::map<int, bool>;
-using Clock = std::chrono::high_resolution_clock;
 
-CNF parse_cnf(const std::string& filename, int &num_vars) {
+enum Val { UNASSIGNED = -1, FALSE_VAL = 0, TRUE_VAL = 1 };
+
+inline int var_idx(int lit) {
+    return std::abs(lit) - 1;
+}
+
+CNF parse_cnf(const std::string& filename, int& num_vars) {
     std::ifstream file(filename);
     std::string line;
     CNF formula;
+    num_vars = 0;
+
+    if (!file.is_open()) return formula;
 
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == 'c') continue;
@@ -34,136 +39,138 @@ CNF parse_cnf(const std::string& filename, int &num_vars) {
             Clause clause;
             while (iss >> lit && lit != 0) {
                 clause.push_back(lit);
+                if (std::abs(lit) > num_vars) num_vars = std::abs(lit);
             }
-            formula.push_back(clause);
+            if (!clause.empty()) formula.push_back(clause);
         }
     }
-
     return formula;
 }
 
-CNF simplify(const CNF &cnf, int var, bool value) {
-    CNF new_cnf;
-    for (const auto &clause : cnf) {
-        bool satisfied = false;
-        Clause new_clause;
-
-        for (int lit : clause) {
-            if ((lit > 0 && var == lit && value) || (lit < 0 && var == -lit && !value)) {
-                satisfied = true;
-                break;
-            } else if ((lit > 0 && var == lit && !value) || (lit < 0 && var == -lit && value)) {
-                continue;
-            } else {
-                new_clause.push_back(lit);
+Val evaluate_clause(const Clause& clause, const std::vector<int>& assignments) {
+    bool is_unresolved = false;
+    for (int lit : clause) {
+        int idx = var_idx(lit);
+        int val = assignments[idx];
+        if (val != UNASSIGNED) {
+            if ((lit > 0 && val == TRUE_VAL) || (lit < 0 && val == FALSE_VAL)) {
+                return TRUE_VAL;
             }
-        }
-
-        if (!satisfied) {
-            if (new_clause.empty()) return {{}};
-            new_cnf.push_back(new_clause);
+        } else {
+            is_unresolved = true;
         }
     }
-    return new_cnf;
+    if (is_unresolved) return UNASSIGNED;
+    
+    return FALSE_VAL;
 }
-
-bool unit_propagate(CNF &cnf, Assignment &assignment) {
+bool unit_propagate(const CNF& cnf, std::vector<int>& assignments, std::vector<int>& changes) {
     bool changed = true;
     while (changed) {
         changed = false;
-        for (auto it = cnf.begin(); it != cnf.end(); ) {
-            if (it->size() == 1) {
-                int unit = (*it)[0];
-                int var = abs(unit);
-                bool value = unit > 0;
+        for (const auto& clause : cnf) {
+            int unassigned_lit = 0;
+            int unassigned_count = 0;
+            bool satisfied = false;
 
-                if (assignment.count(var) && assignment[var] != value)
-                    return false;
+            for (int lit : clause) {
+                int val = assignments[var_idx(lit)];
+                if (val != UNASSIGNED) {
+                    if ((lit > 0 && val == TRUE_VAL) || (lit < 0 && val == FALSE_VAL)) {
+                        satisfied = true;
+                        break; 
+                    }
+                } else {
+                    unassigned_lit = lit;
+                    unassigned_count++;
+                }
+            }
 
-                assignment[var] = value;
-                cnf = simplify(cnf, var, value);
-                changed = true;
-                break;
-            } else {
-                ++it;
+            if (satisfied) continue;
+
+            if (unassigned_count == 0) return false;
+            
+            if (unassigned_count == 1) {
+                int idx = var_idx(unassigned_lit);
+                int val = (unassigned_lit > 0) ? TRUE_VAL : FALSE_VAL;
+                
+                if (assignments[idx] != UNASSIGNED && assignments[idx] != val) return false;
+                
+                if (assignments[idx] == UNASSIGNED) {
+                    assignments[idx] = val;
+                    changes.push_back(idx);
+                    changed = true;
+                }
             }
         }
     }
     return true;
 }
 
-void pure_literal_elimination(CNF &cnf, Assignment &assignment) {
-    std::map<int, int> count;
-    for (const auto &clause : cnf) {
-        for (int lit : clause) {
-            count[lit]++;
+bool dpll_solve(const CNF& cnf, std::vector<int>& assignments) {
+    std::vector<int> changes;
+
+    if (!unit_propagate(cnf, assignments, changes)) {
+        for (int idx : changes) assignments[idx] = UNASSIGNED;
+        return false;
+    }
+
+    bool all_satisfied = true;
+    for (const auto& clause : cnf) {
+        Val status = evaluate_clause(clause, assignments);
+        if (status == FALSE_VAL) {
+            for (int idx : changes) assignments[idx] = UNASSIGNED;
+            return false;
+        }
+        if (status == UNASSIGNED) {
+            all_satisfied = false;
         }
     }
+    if (all_satisfied) return true;
 
-    for (const auto &[lit, _] : count) {
-        int var = abs(lit);
-        if (assignment.count(var)) continue;
-        if (count.count(-lit) == 0) {
-            assignment[var] = (lit > 0);
-            cnf = simplify(cnf, var, assignment[var]);
+    int var_idx = -1;
+    for (size_t i = 0; i < assignments.size(); ++i) {
+        if (assignments[i] == UNASSIGNED) {
+            var_idx = i;
+            break;
         }
     }
-}
+    assignments[var_idx] = TRUE_VAL;
+    if (dpll_solve(cnf, assignments)) return true;
+    assignments[var_idx] = FALSE_VAL;
+    if (dpll_solve(cnf, assignments)) return true;
+    
+    assignments[var_idx] = UNASSIGNED;
 
-bool dpll(CNF cnf, Assignment &assignment) {
-    if (!unit_propagate(cnf, assignment)) return false;
-    pure_literal_elimination(cnf, assignment);
-
-    if (cnf.empty()) return true;
-    for (const auto &clause : cnf) {
-        if (clause.empty()) return false;
-    }
-
-    int var = 0;
-    for (const auto &clause : cnf) {
-        for (int lit : clause) {
-            var = abs(lit);
-            if (!assignment.count(var)) break;
-        }
-        if (var != 0) break;
-    }
-
-    Assignment copy = assignment;
-    CNF cnf_copy = simplify(cnf, var, true);
-    copy[var] = true;
-    if (dpll(cnf_copy, copy)) {
-        assignment = copy;
-        return true;
-    }
-
-    copy = assignment;
-    cnf_copy = simplify(cnf, var, false);
-    copy[var] = false;
-    if (dpll(cnf_copy, copy)) {
-        assignment = copy;
-        return true;
-    }
+    for (int idx : changes) assignments[idx] = UNASSIGNED;
 
     return false;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     std::string folder = "../../cnf_files/samples/";
+    if (argc > 1) folder = argv[1];
+
     std::ofstream out("results_DPLL.txt");
     out << std::fixed << std::setprecision(3);
 
-    for (const auto &entry : fs::directory_iterator(folder)) {
+    if (std::filesystem::is_regular_file(folder)) {
+         // Logic for single file would go here
+    }
+
+    for (const auto &entry : std::filesystem::directory_iterator(folder)) {
         if (entry.path().extension() == ".cnf") {
             std::string file = entry.path().string();
             std::string name = entry.path().filename().string();
 
             int num_vars;
             CNF cnf = parse_cnf(file, num_vars);
-            Assignment assignment;
+            
+            std::vector<int> assignments(num_vars, UNASSIGNED);
 
-            auto start = Clock::now();
-            bool sat = dpll(cnf, assignment);
-            auto end = Clock::now();
+            auto start = std::chrono::high_resolution_clock::now();
+            bool sat = dpll_solve(cnf, assignments);
+            auto end = std::chrono::high_resolution_clock::now();
 
             double ms = std::chrono::duration<double, std::milli>(end - start).count();
             out << name << ": " << (sat ? "SAT" : "UNSAT") << " in " << ms << " ms\n";
@@ -172,6 +179,5 @@ int main() {
     }
 
     out.close();
-    std::cout << "Results written to results.txt\n";
     return 0;
 }

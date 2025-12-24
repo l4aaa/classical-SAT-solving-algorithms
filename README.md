@@ -125,6 +125,20 @@ Results found in the `results/` directory highlight the drastic performance diff
 
 ---
 
+## 📄 Technical Report
+
+This project is accompanied by a detailed academic report analyzing the theoretical foundations and baseline performance of these algorithms.
+
+[**📖 Read the Full Performance Analysis (PDF)**](docs/SAT_Solver_Performance_Analysis.pdf)
+
+**Abstract:**
+> "I present a comparative analysis of four foundational SAT solving algorithms... evaluate these solvers on a diverse set of benchmark CNF instances and analyze their performance in terms of runtime."
+
+> **Note on Performance:**
+> [cite_start]The technical report analyzes **unoptimized** implementations to establish a theoretical baseline. The code in this repository has since been **optimized** (e.g., using pass-by-reference and memory-efficient backtracking in DPLL) to achieve the high performance metrics listed in the Benchmark Summary above.
+
+---
+
 ## 📝 License
 
 Distributed under the MIT License. See `LICENSE` for more information.

@@ -3,55 +3,58 @@
 #include <sstream>
 #include <vector>
 #include <set>
-#include <unordered_map>
-#include <unordered_set>
-#include <chrono>
-#include <filesystem>
-#include <iomanip>
+#include <map>
 #include <algorithm>
+#include <filesystem>
+#include <chrono>
+#include <iomanip>
 
-namespace fs = std::filesystem;
-using namespace std;
+using Clause = std::set<int>;
+using CNF = std::vector<Clause>;
 
-using Clause = set<int>;
-using CNF = vector<Clause>;
-
-CNF parse_cnf(const string &filename) {
-    ifstream file(filename);
-    string line;
+CNF parse_cnf(const std::string &filename) {
+    std::ifstream file(filename);
+    std::string line;
     CNF formula;
 
-    while (getline(file, line)) {
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << "\n";
+        return formula;
+    }
+
+    while (std::getline(file, line)) {
         if (line.empty() || line[0] == 'c') continue;
         if (line[0] == 'p') continue;
 
-        istringstream iss(line);
+        std::istringstream iss(line);
         int lit;
         Clause clause;
         while (iss >> lit && lit != 0) clause.insert(lit);
-        if (!clause.empty())
-            formula.push_back(clause);
+        
+        if (!clause.empty()) formula.push_back(clause);
     }
     return formula;
 }
 
 bool contains_empty_clause(const CNF &cnf) {
-    for (const auto &clause : cnf)
+    for (const auto &clause : cnf) {
         if (clause.empty()) return true;
+    }
     return false;
 }
 
 void remove_clauses_with_literal(CNF &cnf, int lit) {
-    cnf.erase(remove_if(cnf.begin(), cnf.end(),
+    cnf.erase(std::remove_if(cnf.begin(), cnf.end(),
         [lit](const Clause &c) { return c.count(lit); }), cnf.end());
 }
 
 void remove_literal_from_clauses(CNF &cnf, int lit) {
-    for (auto &clause : cnf)
+    for (auto &clause : cnf) {
         clause.erase(lit);
+    }
 }
 
-bool unit_propagate(CNF &cnf, unordered_set<int> &assignments) {
+bool unit_propagate(CNF &cnf, std::set<int> &assignments) {
     bool changed = true;
     while (changed) {
         changed = false;
@@ -62,7 +65,7 @@ bool unit_propagate(CNF &cnf, unordered_set<int> &assignments) {
                 remove_clauses_with_literal(cnf, unit);
                 remove_literal_from_clauses(cnf, -unit);
                 changed = true;
-                it = cnf.begin(); // start over
+                it = cnf.begin();
             } else {
                 ++it;
             }
@@ -71,13 +74,14 @@ bool unit_propagate(CNF &cnf, unordered_set<int> &assignments) {
     return !contains_empty_clause(cnf);
 }
 
-void eliminate_pure_literals(CNF &cnf, unordered_set<int> &assignments) {
-    unordered_map<int, int> literal_count;
-    for (const auto &clause : cnf)
-        for (int lit : clause)
-            literal_count[lit]++;
-    for (const auto &[lit, _] : literal_count) {
-        if (!literal_count.count(-lit)) {
+void eliminate_pure_literals(CNF &cnf, std::set<int> &assignments) {
+    std::map<int, int> literal_count;
+    for (const auto &clause : cnf) {
+        for (int lit : clause) literal_count[lit]++;
+    }
+
+    for (const auto &[lit, count] : literal_count) {
+        if (literal_count.find(-lit) == literal_count.end()) {
             assignments.insert(lit);
             remove_clauses_with_literal(cnf, lit);
         }
@@ -87,12 +91,9 @@ void eliminate_pure_literals(CNF &cnf, unordered_set<int> &assignments) {
 CNF resolve_on_variable(const CNF &cnf, int var) {
     CNF pos_clauses, neg_clauses, rest;
     for (const auto &clause : cnf) {
-        if (clause.count(var))
-            pos_clauses.push_back(clause);
-        else if (clause.count(-var))
-            neg_clauses.push_back(clause);
-        else
-            rest.push_back(clause);
+        if (clause.count(var)) pos_clauses.push_back(clause);
+        else if (clause.count(-var)) neg_clauses.push_back(clause);
+        else rest.push_back(clause);
     }
 
     CNF resolvents = rest;
@@ -107,53 +108,44 @@ CNF resolve_on_variable(const CNF &cnf, int var) {
     return resolvents;
 }
 
-bool davis_putnam(CNF cnf, unordered_set<int> &assignments) {
+bool davis_putnam(CNF cnf, std::set<int> &assignments) {
     if (contains_empty_clause(cnf)) return false;
     if (cnf.empty()) return true;
 
     if (!unit_propagate(cnf, assignments)) return false;
     eliminate_pure_literals(cnf, assignments);
     if (cnf.empty()) return true;
+    if (contains_empty_clause(cnf)) return false;
 
-    unordered_set<int> vars;
-    for (const auto &clause : cnf)
-        for (int lit : clause)
-            vars.insert(abs(lit));
+    std::set<int> vars;
+    for (const auto &clause : cnf) {
+        for (int lit : clause) vars.insert(std::abs(lit));
+    }
+    
+    if (vars.empty()) return true;
 
-    int var = *vars.begin();  // pick arbitrary variable
+    int var = *vars.begin();
     CNF reduced = resolve_on_variable(cnf, var);
     return davis_putnam(reduced, assignments);
 }
 
-int main() {
-    string folder = "../../cnf_files/samples/";
-    ofstream out("results_davis_putnam.txt");
-    out << fixed << setprecision(3);
-
-    if (!fs::exists(folder) || !fs::is_directory(folder)) {
-        cerr << "Error: directory not found: " << folder << "\n";
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: ./dp_solver <input_file.cnf>\n";
         return 1;
     }
+    std::string filename = argv[1];
 
-    for (const auto &entry : fs::directory_iterator(folder)) {
-        if (entry.path().extension() == ".cnf") {
-            string file = entry.path().string();
-            string name = entry.path().filename().string();
+    CNF cnf = parse_cnf(filename);
+    std::set<int> assignments;
 
-            CNF cnf = parse_cnf(file);
-            unordered_set<int> assignments;
+    auto start = std::chrono::high_resolution_clock::now();
+    bool sat = davis_putnam(cnf, assignments);
+    auto end = std::chrono::high_resolution_clock::now();
 
-            auto start = chrono::high_resolution_clock::now();
-            bool sat = davis_putnam(cnf, assignments);
-            auto end = chrono::high_resolution_clock::now();
-
-            double ms = chrono::duration<double, milli>(end - start).count();
-            out << name << ": " << (sat ? "SAT" : "UNSAT") << " in " << ms << " ms\n";
-            cout << name << ": " << (sat ? "SAT" : "UNSAT") << " in " << ms << " ms\n";
-        }
-    }
-
-    out.close();
-    cout << "Results written to results_davis_putnam.txt\n";
+    double ms = std::chrono::duration<double, std::milli>(end - start).count();
+    std::string outcome = (sat ? "SAT" : "UNSAT");
+    
+    std::cout << outcome << " in " << ms << " ms\n";
     return 0;
 }

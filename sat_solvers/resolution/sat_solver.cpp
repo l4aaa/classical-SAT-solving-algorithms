@@ -2,29 +2,29 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <string>
 #include <set>
-#include <unordered_set>
+#include <algorithm>
 #include <chrono>
-#include <filesystem>
 #include <iomanip>
 
-namespace fs = std::filesystem;
-using namespace std;
+using Clause = std::set<int>;
+using CNF = std::vector<Clause>;
 
-using Clause = set<int>;
-using CNF = vector<Clause>;
-
-CNF parse_cnf(const string &filename) {
-    ifstream file(filename);
-    string line;
+CNF parse_cnf(const std::string &filename) {
+    std::ifstream file(filename);
+    std::string line;
     CNF formula;
 
-    while (getline(file, line)) {
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << "\n";
+        return formula;
+    }
+
+    while (std::getline(file, line)) {
         if (line.empty() || line[0] == 'c') continue;
         if (line[0] == 'p') continue;
 
-        istringstream iss(line);
+        std::istringstream iss(line);
         int lit;
         Clause clause;
         while (iss >> lit && lit != 0) clause.insert(lit);
@@ -33,7 +33,7 @@ CNF parse_cnf(const string &filename) {
     return formula;
 }
 
-bool resolve(const Clause &c1, const Clause &c2, Clause &resolvent) {
+bool resolve_clauses(const Clause &c1, const Clause &c2, Clause &resolvent) {
     for (int lit : c1) {
         if (c2.count(-lit)) {
             resolvent.clear();
@@ -46,59 +46,51 @@ bool resolve(const Clause &c1, const Clause &c2, Clause &resolvent) {
 }
 
 bool resolution_algorithm(CNF formula) {
-    set<Clause> clauses(formula.begin(), formula.end());
+    std::set<Clause> clauses(formula.begin(), formula.end());
     bool added = true;
-
+    
     while (added) {
         added = false;
-        vector<Clause> new_clauses;
+        std::vector<Clause> new_clauses;
+        
         for (auto it1 = clauses.begin(); it1 != clauses.end(); ++it1) {
-            for (auto it2 = next(it1); it2 != clauses.end(); ++it2) {
+            for (auto it2 = std::next(it1); it2 != clauses.end(); ++it2) {
                 Clause resolvent;
-                if (resolve(*it1, *it2, resolvent)) {
+                if (resolve_clauses(*it1, *it2, resolvent)) {
                     if (resolvent.empty()) return false;
-                    if (!clauses.count(resolvent)) {
+                    
+                    if (clauses.find(resolvent) == clauses.end()) {
                         new_clauses.push_back(resolvent);
                     }
                 }
             }
         }
-        for (auto &c : new_clauses) {
-            clauses.insert(c);
-            added = true;
+        
+        for (const auto &c : new_clauses) {
+            if (clauses.insert(c).second) {
+                added = true;
+            }
         }
     }
     return true;
 }
 
-int main() {
-    string folder = "../../cnf_files/samples/";
-    ofstream out("results_resolution.txt");
-    out << fixed << setprecision(3);
-
-    if (!fs::exists(folder) || !fs::is_directory(folder)) {
-        cerr << "Error: directory not found: " << folder << "\n";
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: ./resolution_solver <input_file.cnf>\n";
         return 1;
     }
+    std::string filename = argv[1];
 
-    for (const auto &entry : fs::directory_iterator(folder)) {
-        if (entry.path().extension() == ".cnf") {
-            string file = entry.path().string();
-            string name = entry.path().filename().string();
+    CNF cnf = parse_cnf(filename);
 
-            CNF cnf = parse_cnf(file);
+    auto start = std::chrono::high_resolution_clock::now();
+    bool sat = resolution_algorithm(cnf);
+    auto end = std::chrono::high_resolution_clock::now();
 
-            auto start = chrono::high_resolution_clock::now();
-            bool sat = resolution_algorithm(cnf);
-            auto end = chrono::high_resolution_clock::now();
-
-            double ms = chrono::duration<double, milli>(end - start).count();
-            out << name << ": " << (sat ? "SAT" : "UNSAT") << " in " << ms << " ms\n";
-            cout << name << ": " << (sat ? "SAT" : "UNSAT") << " in " << ms << " ms\n";
-        }
-    }
-
-    out.close();
-    cout << "Results written to results_resolution.txt\n";
+    double ms = std::chrono::duration<double, std::milli>(end - start).count();
+    std::string outcome = (sat ? "SAT" : "UNSAT");
+    
+    std::cout << outcome << " in " << ms << " ms\n";
     return 0;
 }

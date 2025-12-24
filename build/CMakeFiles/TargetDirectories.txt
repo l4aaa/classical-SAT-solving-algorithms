@@ -1,0 +1,6 @@
+/home/lau/portofolio/classical-SAT-solving-algorithms/build/CMakeFiles/cdcl_solver.dir
+/home/lau/portofolio/classical-SAT-solving-algorithms/build/CMakeFiles/dpll_solver.dir
+/home/lau/portofolio/classical-SAT-solving-algorithms/build/CMakeFiles/dp_solver.dir
+/home/lau/portofolio/classical-SAT-solving-algorithms/build/CMakeFiles/resolution_solver.dir
+/home/lau/portofolio/classical-SAT-solving-algorithms/build/CMakeFiles/edit_cache.dir
+/home/lau/portofolio/classical-SAT-solving-algorithms/build/CMakeFiles/rebuild_cache.dir

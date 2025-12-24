@@ -112,13 +112,14 @@ void SATSolverCDCL::initialize(const std::string& filename) {
 
 int SATSolverCDCL::unit_propagate(int decision_level) {
     bool unit_clause_found = false;
-    int false_count = 0, unset_count = 0;
+    size_t false_count = 0;
+    size_t unset_count = 0;
     int last_unset_literal_idx = -1;
     bool satisfied_flag = false;
 
     do {
         unit_clause_found = false;
-        for (int i = 0; i < literal_list_per_clause.size() && !unit_clause_found; i++) {
+        for (size_t i = 0; i < literal_list_per_clause.size() && !unit_clause_found; i++) {
             false_count = 0;
             unset_count = 0;
             satisfied_flag = false;
@@ -129,7 +130,7 @@ int SATSolverCDCL::unit_propagate(int decision_level) {
 
                 if (literals[literal_index] == -1) {
                     unset_count++;
-                    last_unset_literal_idx = j;
+                    last_unset_literal_idx = (int)j;
                 } else if ((literals[literal_index] == 0 && variable > 0) ||
                            (literals[literal_index] == 1 && variable < 0)) {
                     false_count++;
@@ -142,11 +143,11 @@ int SATSolverCDCL::unit_propagate(int decision_level) {
             if (satisfied_flag) continue;
 
             if (unset_count == 1) {
-                assign_literal(literal_list_per_clause[i][last_unset_literal_idx], decision_level, i);
+                assign_literal(literal_list_per_clause[i][last_unset_literal_idx], decision_level, (int)i);
                 unit_clause_found = true;
                 break;
             } else if (false_count == literal_list_per_clause[i].size()) {
-                kappa_antecedent = i;
+                kappa_antecedent = (int)i;
                 return RetVal::r_unsatisfied;
             }
         }
@@ -229,9 +230,9 @@ int SATSolverCDCL::conflict_analysis_and_backtrack(int decision_level) {
         }
     }
 
-    for (int i = 0; i < literals.size(); i++) {
+    for (size_t i = 0; i < literals.size(); i++) {
         if (literal_decision_level[i] > backtracked_decision_level) {
-            unassign_literal(i);
+            unassign_literal((int)i);
         }
     }
 
@@ -245,7 +246,7 @@ std::vector<int>& SATSolverCDCL::resolve(std::vector<int>& input_clause, int lit
     
     int var_num = literal_idx + 1;
     
-    for (int i = 0; i < input_clause.size(); i++) {
+    for (int i = 0; i < (int)input_clause.size(); i++) {
         if (input_clause[i] == var_num || input_clause[i] == -var_num) {
             input_clause.erase(input_clause.begin() + i);
             i--;
@@ -263,7 +264,7 @@ int SATSolverCDCL::pick_branching_variable() {
     std::uniform_int_distribution<int> choose_literal(0, literal_count - 1);
     
     if (pick_counter > 20 * literal_count) {
-        for (int i = 0; i < literals.size(); i++) {
+        for (size_t i = 0; i < literals.size(); i++) {
             original_literal_frequency[i] /= 2;
             if (literal_frequency[i] != -1) literal_frequency[i] /= 2;
         }

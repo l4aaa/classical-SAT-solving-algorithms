@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/resolution_solver.dir/sat_solvers/resolution/sat_solver.cpp.o -o resolution_solver 
